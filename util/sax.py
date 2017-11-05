@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from scipy.stats import norm
-import Trie
+from trie import Trie
 
 
 class SAX(object):
@@ -21,14 +21,13 @@ class SAX(object):
 		Args:
 			C:numpy array 
 		Returns:
-			C_bar:			
+			C_bar:	PAA of C		
 		"""
 		n = len(C)
 		w = self._w
 		if n%w==0:
 			C_bar = np.mean(C.reshape(w,n//w),axis=1)
 		elif type=="symmetric":
-			print("symmetric")
 			k = n//w
 			b = n%w
 			weight = float(n/((w)*(k+b)))
@@ -70,7 +69,7 @@ class SAX(object):
 
 	def get_sax_word(self,C):
 		paa = self.compute_PAA(self.normalize(C))
-		return self.convert_to_word(paa)
+		return (self.convert_to_word(paa),paa)
 
 
 	def compute_SAX(self,signal,window_size=6,hop_size=1,hop_fraction=None):
@@ -80,13 +79,35 @@ class SAX(object):
 		start = 0
 		sax = ""
 		while start <= len(signal)-self._w:
+			
 			if start+window_size > len(signal):
 				C = signal[start:]
-			C = signal[start:start+window_size]
-			sax += self.get_sax_word(C)
+			else:
+				C = signal[start:start+window_size]
+			sax,paa = self.get_sax_word(C)
+			yield (sax,paa,start)
 			start += hop_size
 
-		return sax
+
+	def MINDIST(self,q_hat,c_hat,n):
+		"""
+		Calculating the distance between q_hat and c_hat
+		using MINDIST measure!
+		"""
+		w = len(q_hat)
+		scaling_factor = float(n/w)
+		sum_square = sum(self._MINDIST_cell(q_hat[i],c_hat[i])**2 for i in range(w))
+		return np.sqrt(scaling_factor*sum_square)
+
+
+	def _MINDIST_cell(r,c):
+		betas = self._betas
+		r_idx = ord(r)-ord('a')
+		c_idx = ord(c)-ord('a')
+		if abs(r_idx-c_idx) <= 1:
+			return 0.0
+		else:
+			return betas[max(r_idx,c_idx)-1] - betas[min(r_idx,c_idx)]
 
 
 	def get_beta_values(self):
@@ -94,17 +115,12 @@ class SAX(object):
 
 
 def main():
-	sax = SAX(w=6,a=5)
-	a = np.array([7,1,4,4,4,4])
-	print(sax.compute_SAX(a))
+	sax = SAX(w=4,a=4)
+	signal = np.array([1,4,3,6,8,-1,4,3])
+	for s,_,start in sax.compute_SAX(signal,window_size=8,hop_size=2):
+		print("sax_symbol= {} started from {}".format(s,start))
 
-	return
-	# print(c)
-	# print(sax.compute_PAA(c))
-	# print(sax.normalize(c))
-	c = bin(100)
-	print(c)
-	print(type(c))
+
 
 if __name__ == '__main__':
 	main()
